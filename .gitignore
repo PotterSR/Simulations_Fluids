@@ -1,0 +1,14 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+#PythonStuff
+*.py
+*.png
+*.dat
+*.xyz
+*.sh
+*.vscode
+*.ipynb

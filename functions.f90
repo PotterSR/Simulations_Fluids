@@ -166,7 +166,7 @@ contains
         neigh_list(:,:) = 0_i64
         n_neigh(:)      = 0_i64
         !
-        do ii = 1, N 
+        do ii = 1, N-1 ! ii = 1 -> jj =2 ... ii = N-1, jj = N
             do jj = ii+1, N 
                 dx = xx(ii) - xx(jj)
                 dy = yy(ii) - yy(jj)
@@ -192,5 +192,62 @@ contains
             end do
         end do
     end subroutine build_neighbor_list
+
+    subroutine radial_distribution(xx, yy, zz, rdf)
+        real(kind=dp), intent(in)    :: xx(N), yy(N), zz(N)
+        real(kind=dp), intent(out)   :: rdf(nbins)
+        integer(kind=i64) :: ii, jj, bin
+        real(kind=dp)     :: dbin, r2, dx, dy, dz, L2, r
+        real(kind=dp)     :: volr, nid
+
+        L2 = (L/2.0_dp)**2
+
+        dbin = L/(2.0_dp * real(nbins, kind=dp)) ! Tamaño de los bins
+        rdf(:) = 0.0_dp ! Inicializamos el rdf
+
+        do ii = 1, N-1
+            do jj = ii+1, N 
+                dx = xx(ii) - xx(jj)
+                dy = yy(ii) - yy(jj)
+                dz = zz(ii) - zz(jj)
+
+                dx = dx - L*nint(dx/L)
+                dy = dy - L*nint(dy/L)
+                dz = dz - L*nint(dz/L)
+                
+                r2 = dx**2 + dy**2 + dz**2
+                ! Solamente aceptamos si esta a menos de L/2
+                if(r2 < L2) then
+                    r = sqrt(r2)
+                    bin = int(r/dbin) + 1_i64
+                    rdf(bin) = rdf(bin) + 2.0_dp
+                end if
+            end do 
+        end do
+
+        ! Normalización
+        do ii = 1, nbins
+            volr = ((real(ii+1, kind=dp))**3 - (real(ii, kind=dp))**3)*dbin**3
+            nid = (4.0_dp/3.0_dp) * PI * volr * (real(N, kind=dp)/ L**3)
+            
+            rdf(ii) = rdf(ii)/(nid * real(N, kind=dp))
+        end do
+
+        open(unit=10, file="rdf.dat", status="replace", action="write")
+        
+
+        do ii = 1, nbins
+            r = dbin*(real(ii, kind=dp) + 0.5_dp)
+            write(10, *) r, rdf(ii)
+        end do 
+
+        close(10)
+        
+
+    end subroutine radial_distribution
+
+
+
+
 
 end module functions

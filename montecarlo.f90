@@ -19,7 +19,7 @@ Program Montecarlo
     !
     !
     ! integer(kind=i64) :: ii, jj
-    real(kind=dp)     :: xx(N), yy(N), zz(N)
+    real(kind=dp)     :: xx(N), yy(N), zz(N), rdf(nbins)
     integer(kind=i64) :: n_neigh(N) 
     integer(kind=i64) :: neigh_list(N, mxnb)
     !
@@ -33,6 +33,10 @@ Program Montecarlo
     call init_codition(xx, yy, zz)
     ! Corremos el código de Montecarlo para esferas duras
     call montecarlo_hs(xx, yy, zz, n_neigh, neigh_list)
+    !
+    ! Calculamos la rdf
+    call radial_distribution(xx, yy, zz, rdf)
+
     ! Salvamos las posiciones un .xyz
     call save_positions(xx, yy, zz)
 

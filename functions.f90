@@ -48,7 +48,7 @@ contains
 
     end subroutine save_positions
 
-    subroutine montecarlo_hs(xx, yy, zz)
+    subroutine montecarlo_hs(xx, yy, zz, n_neigh, neigh_list)
     !***********************************************
     ! Implementación de Montecarlo para esferas duras
     !   
@@ -57,16 +57,24 @@ contains
     !
     !***********************************************
         real(kind=dp), intent(inout) :: xx(N), yy(N), zz(N)
-        integer(kind=i64) :: o, n_accept, n_total, ii, jj
+        integer(kind=i64), intent(inout)    :: n_neigh(N), neigh_list(N, mxnb)
+        integer(kind=i64) :: o, n_accept, n_total, ii, jj, kk
         logical           :: overlap
         real(kind=dp)     :: x_trial, y_trial, z_trial
-        real(kind=dp)     :: r2, dx, dy, dz
-
+        real(kind=dp)     :: r2, dx, dy, dz, max_disp
+        !
+        !
+        !
         overlap = .false.
-
         n_accept = 0
         n_total  = 0
-        write(*, *) delta
+        max_disp = 0.0_dp
+        !
+        ! Inicializmos la variables antes del Montecarlo
+        !
+        ! Inicializamos las la lista de vecinos
+        call build_neighbor_list(xx, yy, zz, n_neigh, neigh_list)
+        !
         do jj = 1, n_cycle
             !
             !
@@ -87,12 +95,13 @@ contains
             z_trial = z_trial - L*floor(z_trial/L)
             ! Calculamos la energía de la partícula
 
-            do ii = 1, N 
-                if(ii == o) cycle 
+            do ii = 1, n_neigh(o)
+                
+                kk = neigh_list(o, ii)
 
-                dx = x_trial - xx(ii)
-                dy = y_trial - yy(ii)
-                dz = z_trial - zz(ii)
+                dx = x_trial - xx(kk)
+                dy = y_trial - yy(kk)
+                dz = z_trial - zz(kk)
                 !
                 ! Condiciones de imagen mínima
                 !
@@ -112,7 +121,14 @@ contains
                 yy(o) = y_trial
                 zz(o) = z_trial
                 n_accept = n_accept + 1
+                max_disp = max_disp + delta
             end if
+
+            if (max_disp > sigma+skin) then
+                call build_neighbor_list(xx, yy, zz, n_neigh, neigh_list)
+                max_disp = 0.0_dp
+            end if
+
 
             !if (mod(jj, 10000) == 0) then
             !    if (real(n_accept, kind=dp) / 1000.0_dp > 0.2_dp) then

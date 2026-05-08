@@ -31,9 +31,8 @@ Program Montecarlo
     ! Generamos las posiciones de las partículas
     ! en forma de grid
     call init_codition(xx, yy, zz)
-    !
     ! Corremos el código de Montecarlo para esferas duras
-    call montecarlo_hs(xx, yy, zz)
+    call montecarlo_hs(xx, yy, zz, n_neigh, neigh_list)
     ! Salvamos las posiciones un .xyz
     call save_positions(xx, yy, zz)
 

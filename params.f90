@@ -8,9 +8,9 @@ module parameters
     integer(kind=i64), parameter :: N = 600
     real(kind=dp),     parameter :: sigma = 1.0_dp, L = 10.0_dp
     real(kind=dp),     parameter :: skin = 0.5_dp * sigma    ! = 0.5 para el valor de los vecinos
-    integer(kind=i64), parameter :: n_cycle = 10000000_i64
+    integer(kind=i64), parameter :: n_cycle = 100000_i64
     integer(kind=i64), parameter :: mxnb = 50
-    real(kind=dp)                :: delta = 0.1
+    real(kind=dp)                :: delta = 0.2_dp
     !
     !
     ! Calculamos el packing fraction del sistema

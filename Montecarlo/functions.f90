@@ -153,7 +153,7 @@ contains
     !***********************************************
     ! Implementación de Montecarlo para esferas duras
     !   
-    ! Se rechaza el movimiento si algún traslape con
+    ! Se rechaza el movimiento si hay algún traslape con
     ! alguna otra partícula
     !
     !***********************************************
@@ -247,14 +247,14 @@ contains
                 max_disp2 = 0.0_dp
             end if
 
-            !if (mod(jj, 1000) == 0) then
-            !    if (real(n_accept, kind=dp) / 1000.0_dp > 0.5_dp) then
-            !        delta = delta * 1.05_dp  
-            !    else
-            !        delta = delta * 0.95_dp    
-            !    end if
-            !    n_accept = 0
-            !end if
+            if (mod(jj, 1000) == 0) then
+                if (real(n_accept, kind=dp) / 1000.0_dp > 0.5_dp) then
+                    delta = delta * 1.05_dp  
+                else
+                    delta = delta * 0.95_dp    
+                end if
+                n_accept = 0
+            end if
         end do
 
         !

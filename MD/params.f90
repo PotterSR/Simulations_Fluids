@@ -5,11 +5,11 @@ module parameters
     !
     ! Definimos el tamaño del sistema
     !
-    integer(kind=i64), parameter :: N = 680 ! Número de partículas
+    integer(kind=i64), parameter :: N = 600 ! Número de partículas
     real(kind=dp),     parameter :: sigma = 1.0_dp, L = 10.0_dp ! Diametro, Lado de la caja
     real(kind=dp),     parameter :: skin = 1.0_dp * sigma    ! = 0.5 para el valor de los vecinos
-    integer(kind=i64), parameter :: n_steps = 10_i64  ! Número de ciclos Montecalor 
-    integer(kind=i64), parameter :: mxnb = 50      ! Máximo numero de vecinos
+    integer(kind=i64), parameter :: n_steps = 200000_i64  ! Número de ciclos Montecalor 
+    integer(kind=i64), parameter :: mxnb = 200     ! Máximo numero de vecinos
     real(kind=dp)                :: dt = 0.001_dp ! Valor del dt en el tiempo
     !
     integer(kind=i64), parameter :: nbins    = 200 ! Número de bins para el 

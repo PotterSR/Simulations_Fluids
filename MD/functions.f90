@@ -5,20 +5,27 @@ module functions
 
 contains 
 
-    subroutine init_codition(xx, yy, zz)
-        !
-        ! Nos genera una condición inicial en forma de grid
-        !
+    subroutine init_condition(xx, yy, zz)
+    !
+    ! Nos genera una condición inicial en forma de grid
+    !
         real(kind=dp), intent(inout) :: xx(N), yy(N), zz(N)
         real(kind=dp)              :: a
         integer(kind=i64)          :: ii, jj, ll, idx, n_side
 
         n_side = ceiling( real(N, kind=dp)**(1.0_dp/3.0_dp) )
         a      = L / real(n_side, kind=dp)
+
+        if (a < 1.1_dp * sigma) then
+            write(0,*) "ERROR: grid spacing too small, reduce N or increase L"
+            write(0,*) "a = ", a, " sigma = ", sigma
+            stop
+        end if
+
         idx = 1
         do jj = 0, n_side - 1
             do ii = 0, n_side - 1
-                do ll = 0, n_side -1
+                do ll = 0, n_side - 1
                     if (idx > N) exit
                     xx(idx) = (real(ii, kind=dp) + 0.5_dp) * a
                     yy(idx) = (real(jj, kind=dp) + 0.5_dp) * a
@@ -30,7 +37,41 @@ contains
             if (idx > N) exit
         end do
 
-    end subroutine init_codition
+    end subroutine init_condition
+
+    subroutine init_condition_fcc(xx, yy, zz)
+        !
+        ! Nos genera una condición inicial en forma de grid
+        !
+        real(kind=dp), intent(inout) :: xx(N), yy(N), zz(N)
+        real(kind=dp)              :: a
+        integer(kind=i64)          :: ii, jj, ll, idx, n_side
+
+        n_side = ceiling( real(N, kind=dp)**(1.0_dp/3.0_dp) )
+        a      = L / real(n_side, kind=dp)
+
+        if (a < 1.1_dp * sigma) then
+            write(0,*) "ERROR: grid spacing too small, reduce N or increase L"
+            write(0,*) "a = ", a, " sigma = ", sigma
+            stop
+        end if
+
+        idx = 1
+        do jj = 0, n_side - 1
+            do ii = 0, n_side - 1
+                do ll = 0, n_side - 1
+                    if (idx > N) exit
+                    xx(idx) = (real(ii, kind=dp) + 0.5_dp) * a
+                    yy(idx) = (real(jj, kind=dp) + 0.5_dp) * a
+                    zz(idx) = (real(ll, kind=dp) + 0.5_dp) * a
+                    idx = idx + 1
+                end do
+                if (idx > N) exit
+            end do
+            if (idx > N) exit
+        end do
+
+    end subroutine init_condition_fcc
 
     subroutine save_positions(xx, yy, zz)
         real(kind=dp), intent(in) :: xx(N), yy(N), zz(N)
@@ -58,7 +99,7 @@ contains
         real(kind=dp)     :: dx, dy, dz, r2
         !
         ! Damos los valores para el rc de la lista
-        rc  = sigma + skin
+        rc  = 2.5_dp * sigma + skin
         rc2 = rc**2
         !
         ! Inicializamos los vectores 
@@ -148,39 +189,50 @@ contains
     end subroutine radial_distribution
 
 
-    subroutine md(xx, yy, zz, vx, vy, vz)
+    subroutine md(xx, yy, zz, vx, vy, vz, n_neigh, neigh_list)
     !***************************************************
     ! Implementación de Dinámica Molecular usando Lenard-Jones
     ! Usando algoritmo de Verlet para integral posiciones
     
-        real(kind=dp), intent(inout)  :: xx(N), yy(N), zz(N), vx(N), vy(N), vz(N)
+        real(kind=dp),    intent(inout)  :: xx(N), yy(N), zz(N), vx(N), vy(N), vz(N)
+        integer(kind=i64),intent(inout)  :: n_neigh(N)
+        integer(kind=i64),intent(inout)  :: neigh_list(mxnb, N)
+        real(kind=dp)                 :: rdf(nbins), rdf_frame(nbins)
         real(kind=dp)                 :: xxold(N), yyold(N), zzold(N)
         real(kind=dp)                 :: xnew, ynew, znew
         real(kind=dp)                 :: sumvsq, sumvx, sumvy, sumvz
         real(kind=dp)                 :: ax(N), ay(N), az(N)
-        
-        integer(kind=i64) :: n_neigh(N)
-        integer(kind=i64) :: neigh_list(N, mxnb)
-        integer(kind=i64) :: ii, jj, kk
+        real(kind=dp)                 :: xx0(N), yy0(N), zz0(N)
+        real(kind=dp)                 :: max_disp2, d2
+        real(kind=dp)                 :: max_disp
+        real(kind=dp)                 :: energy_p, energyt
+        real(kind=dp)                 :: dt2, dbin
 
-        real(kind=dp)     :: dt2 
+        integer(kind=i64) :: ii, jj, n_frame
+        
         
         
         dt2 = dt**2
         ! Inicializamos las variables
-        ax(:)  = 0.0_dp
-        ay(:)  = 0.0_dp
-        az(:)  = 0.0_dp
-        sumvx  = 0.0_dp
-        sumvy  = 0.0_dp
-        sumvz  = 0.0_dp
-        sumvsq = 0.0_dp
+        ax(:)    = 0.0_dp
+        ay(:)    = 0.0_dp
+        az(:)    = 0.0_dp
+        rdf(:)   = 0.0_dp
+        sumvx    = 0.0_dp
+        sumvy    = 0.0_dp
+        sumvz    = 0.0_dp
+        sumvsq   = 0.0_dp
+        max_disp = 0.0_dp
+        energy_p = 0.0_dp
+        energy   = 0.0_dp
+        
+        n_frame = 0
 
         ! Inicializamos la velocidades
         do ii = 1, N 
-            vx(ii) = urand(-1.0_dp, 1.0_dp)
-            vy(ii) = urand(-1.0_dp, 1.0_dp)
-            vz(ii) = urand(-1.0_dp, 1.0_dp)
+            vx(ii) = nrand(0.0_dp, 1.0_dp)
+            vy(ii) = nrand(0.0_dp, 1.0_dp)
+            vz(ii) = nrand(0.0_dp, 1.0_dp)
         end do
         ! Restamos la velocidad del centro de masa para evitar el drift
 
@@ -202,13 +254,17 @@ contains
         end do
 
         call build_neighbor_list(xx, yy, zz, n_neigh, neigh_list)
+        xx0 = xx 
+        yy0 = yy
+        zz0 = zz
+        max_disp2 = 0.0_dp        
 
-        call force(xx, yy, zz, ax, ay, az, n_neigh, neigh_list)
+        call force(xx, yy, zz, ax, ay, az, energy_p, n_neigh, neigh_list)
 
         do ii = 1, N 
             xxold(ii) = xx(ii) - vx(ii)*dt + 0.5_dp*ax(ii)*dt2   
             yyold(ii) = yy(ii) - vy(ii)*dt + 0.5_dp*ay(ii)*dt2    
-            zzold(ii) = zz(ii) - vz(ii)*dt + 0.5_dp*az(ii)*dt2    
+            zzold(ii) = zz(ii) - vz(ii)*dt + 0.5_dp*az(ii)*dt2 
         end do 
 
 
@@ -217,21 +273,20 @@ contains
             sumvx = 0.0_dp
             sumvy = 0.0_dp
             sumvz = 0.0_dp
-
-            call  force(xx, yy, zz, ax, ay, az, n_neigh, neigh_list)
+            sumvsq = 0.0_dp
 
             do jj = 1, N 
                 xnew = 2.0_dp * xx(jj) - xxold(jj) + dt2 * ax(jj)
                 ynew = 2.0_dp * yy(jj) - yyold(jj) + dt2 * ay(jj)
                 znew = 2.0_dp * zz(jj) - zzold(jj) + dt2 * az(jj)
                 ! Periodic Boundary Conditions
+                vx(jj) = (xnew - xxold(jj)) / (2.0_dp * dt)
+                vy(jj) = (ynew - yyold(jj)) / (2.0_dp * dt)
+                vz(jj) = (znew - zzold(jj)) / (2.0_dp * dt)
+
                 xnew = xnew - L*floor(xnew/L)
                 ynew = ynew - L*floor(ynew/L)
                 znew = znew - L*floor(znew/L)
-
-                vx(jj) = (xnew - xxold(jj))/ (2.0_dp * dt)
-                vy(jj) = (ynew - yyold(jj))/ (2.0_dp * dt)
-                vz(jj) = (znew - zzold(jj))/ (2.0_dp * dt)
                 
                 xxold(jj) = xx(jj)
                 yyold(jj) = yy(jj)
@@ -241,19 +296,60 @@ contains
                 yy(jj) = ynew
                 zz(jj) = znew
 
+                sumvsq = 0.5_dp * sumvsq + vx(jj)*vx(jj) + vy(jj)*vy(jj) + vz(jj)*vz(jj)
+
 
             end do 
 
+            max_disp2 = 0.0_dp
+            do jj = 1, N
+                d2 = (xx(jj)-xx0(jj))**2 + (yy(jj)-yy0(jj))**2 + (zz(jj)-zz0(jj))**2
+                max_disp2 = max(max_disp2, d2)
+            end do
+
+            if (max_disp2 > (0.5_dp*skin)**2) then
+                call build_neighbor_list(xx, yy, zz, n_neigh, neigh_list)
+                xx0 = xx
+                yy0 = yy
+                zz0 = zz
+                max_disp2 = 0.0_dp
+            end if
+
+            call  force(xx, yy, zz, ax, ay, az, energy_p, n_neigh, neigh_list)
+
+            energyt = sumvsq + energy_p
+
+            if(mod(ii, n_sample) == 0 .and. ii > 100000_i64 ) then 
+                
+                call radial_distribution(xx, yy, zz, rdf_frame)
+                rdf(:) = rdf(:) + rdf_frame(:)
+                n_frame = n_frame + 1
+                write(*, *) ii
+            end if
+
         end do
+
+        do ii = 1, nbins 
+            rdf(ii) = rdf(ii) / real(n_frame, kind = dp)
+        end do 
+
+        dbin = L / (2.0_dp * real(nbins, kind=dp))
+        open(unit=10, file='rdf_md.dat', status='replace', action='write')
+        do jj = 1, nbins
+            r = dbin * (real(jj, kind=dp) - 0.5_dp)
+            write(10, *) r, rdf(jj)
+        end do
+        close(10)
 
 
     end subroutine md
 
-    subroutine force(xx, yy, zz, ax, ay, az, n_neigh, neigh_list)
+    subroutine force(xx, yy, zz, ax, ay, az, energy_p,n_neigh, neigh_list)
         real(kind=dp), intent(in)  :: xx(N), yy(N), zz(N)
         real(kind=dp), intent(out) :: ax(N), ay(N), az(N)
+        real(kind=dp), intent(out) :: energy_p
         integer(kind=i64), intent(in) :: n_neigh(N)
-        integer(kind=i64), intent(in) :: neigh_list(N, mxnb)
+        integer(kind=i64), intent(in) :: neigh_list(mxnb, N)
 
         real(kind=dp), parameter :: eps     = 1.0_dp      ! LJ energy scale
         real(kind=dp), parameter :: r_cut   = 2.5_dp * sigma  ! standard LJ cutoff
@@ -269,11 +365,12 @@ contains
         ax(:) = 0.0_dp
         ay(:) = 0.0_dp
         az(:) = 0.0_dp
+        energy_p = 0.0_dp
 
         do ii = 1, N-1
 
             do jj = 1, n_neigh(ii) 
-                kk = neigh_list(ii, jj)
+                kk = neigh_list(jj, ii)
                 if (kk <= ii) cycle 
 
                 dx = xx(ii) - xx(kk)
@@ -301,6 +398,10 @@ contains
                     ax(kk) = ax(kk) - fij * dx
                     ay(kk) = ay(kk) - fij * dy
                     az(kk) = az(kk) - fij * dz
+
+                    energy_p = energy_p + 4.0_dp * eps * (sr12 - sr6) 
+
+
                 end if
             end do
         end do 

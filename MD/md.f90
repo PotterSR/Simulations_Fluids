@@ -26,9 +26,12 @@ Program MolecularDynamics
 
     ! Generamos las posiciones de las partículas
     ! en forma de grid
-    call init_codition(xx, yy, zz)
-    
-    call md(xx, yy, zz, vx, vz, vy)
+
+    write(*, *) "Packing Fraction eta = ", eta
+
+    call init_condition_fcc(xx, yy, zz)
+
+    call md(xx, yy, zz, vx, vz, vy, n_neigh, neigh_list)
 
     call save_positions(xx, yy, zz)
 
